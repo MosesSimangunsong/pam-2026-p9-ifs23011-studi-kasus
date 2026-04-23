@@ -5,7 +5,10 @@ import 'package:intl/intl.dart';
 import '../../providers/motivation_provider.dart';
 import '../../core/theme/theme_notifier.dart';
 
+// FIX: tambah {super.key} pada StatefulWidget
 class MotivationScreen extends StatefulWidget {
+  const MotivationScreen({super.key});
+
   @override
   State<MotivationScreen> createState() => _MotivationScreenState();
 }
@@ -16,22 +19,27 @@ class _MotivationScreenState extends State<MotivationScreen> {
   @override
   void initState() {
     super.initState();
-
     final provider = context.read<MotivationProvider>();
     provider.fetchMotivations();
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels ==
-          _scrollController.position.maxScrollExtent) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 100) {
         provider.fetchMotivations();
       }
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   String formatDate(String date) {
     try {
       final parsed = DateTime.parse(date);
-      return DateFormat("dd MMM yyyy, HH:mm").format(parsed);
+      return DateFormat('dd MMM yyyy, HH:mm').format(parsed);
     } catch (e) {
       return date;
     }
@@ -43,18 +51,19 @@ class _MotivationScreenState extends State<MotivationScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, // 🔥 biar gak bisa close saat loading
+      barrierDismissible: false,
       builder: (dialogContext) {
         return Consumer<MotivationProvider>(
-          builder: (context, provider, _) {
+          builder: (ctx, provider, _) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: Row(
+              // FIX: tambah const pada Text widget yang tidak butuh variabel
+              title: const Row(
                 children: [
-                  Text("✨ "),
-                  Text("Generate Motivasi"),
+                  Text('✨ '),
+                  Text('Generate Motivasi'),
                 ],
               ),
               content: Column(
@@ -63,18 +72,18 @@ class _MotivationScreenState extends State<MotivationScreen> {
                   TextField(
                     controller: themeController,
                     decoration: InputDecoration(
-                      labelText: "Theme",
+                      labelText: 'Theme',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: totalController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: "Total",
+                      labelText: 'Total',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -83,43 +92,48 @@ class _MotivationScreenState extends State<MotivationScreen> {
                 ],
               ),
               actions: [
-                // ❌ cancel hanya aktif kalau tidak loading
                 TextButton(
                   onPressed: provider.isGenerating
                       ? null
                       : () => Navigator.pop(dialogContext),
-                  child: Text("Cancel"),
+                  child: const Text('Cancel'),
                 ),
-
                 ElevatedButton(
                   onPressed: provider.isGenerating
                       ? null
                       : () async {
-                    await provider.generate(
-                      themeController.text,
-                      int.parse(totalController.text),
-                    );
-                    Navigator.pop(dialogContext);
-                  },
-
-                  // 🔥 LOADING DI BUTTON
+                          // FIX: validasi input sebelum parse
+                          final total =
+                              int.tryParse(totalController.text.trim());
+                          if (themeController.text.trim().isEmpty ||
+                              total == null) {
+                            return;
+                          }
+                          await provider.generate(
+                            themeController.text.trim(),
+                            total,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
+                        },
                   child: provider.isGenerating
-                      ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Text("Generating..."),
-                    ],
-                  )
-                      : Text("Generate"),
+                      ? const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Generating...'),
+                          ],
+                        )
+                      : const Text('Generate'),
                 ),
               ],
             );
@@ -132,18 +146,18 @@ class _MotivationScreenState extends State<MotivationScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MotivationProvider>();
-    final theme = context.watch<ThemeNotifier>();
+    final theme    = context.watch<ThemeNotifier>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Delcom Motivation",
+        title: const Text(
+          'Delcom Motivation',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.dark_mode),
+            icon: const Icon(Icons.dark_mode),
             onPressed: theme.toggleTheme,
           ),
         ],
@@ -151,109 +165,140 @@ class _MotivationScreenState extends State<MotivationScreen> {
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: showGenerateDialog,
-        icon: Icon(Icons.auto_awesome),
-        label: Text("Generate"),
-        backgroundColor: Color(0xFF6366F1),
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text('Generate'),
+        backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
       ),
 
       body: Stack(
         children: [
-          Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.only(bottom: 120),
-              itemCount: provider.motivations.length + 1,
-              itemBuilder: (context, index) {
-                if (index < provider.motivations.length) {
-                  final item = provider.motivations[index];
-                  final number = index + 1;
-
-                  return Container(
-                    margin:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    padding: EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF6366F1),
-                          Color(0xFF8B5CF6),
-                        ],
+          Column(
+            children: [
+              // FIX: tampilkan error banner jika ada
+              if (provider.error != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline,
+                          color: Colors.red.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          provider.error!,
+                          style: TextStyle(
+                              color: Colors.red.shade800, fontSize: 13),
+                        ),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 12,
-                          offset: Offset(0, 6),
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      IconButton(
+                        icon: Icon(Icons.close,
+                            color: Colors.red.shade400, size: 18),
+                        onPressed: provider.clearError,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
 
-                        // 🔥 HEADER
-                        Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "#$number",
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
+                  itemCount: provider.motivations.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index < provider.motivations.length) {
+                      final item   = provider.motivations[index];
+                      final number = index + 1;
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF6366F1),
+                              Color(0xFF8B5CF6),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
                             ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '#$number',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  formatDate(item.createdAt),
+                                  style: const TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
                             Text(
-                              formatDate(item.createdAt),
-                              style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 11,
+                              item.text,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.5,
                               ),
                             ),
                           ],
                         ),
-
-                        SizedBox(height: 12),
-
-                        Text(
-                          item.text,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                } else {
-                  return provider.isLoading
-                      ? Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 8),
-                        Text("Loading..."),
-                      ],
-                    ),
-                  )
-                      : SizedBox();
-                }
-              },
-            ),
+                      );
+                    } else {
+                      return provider.isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 8),
+                                  Text('Loading...'),
+                                ],
+                              ),
+                            )
+                          : const SizedBox();
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
 
-          // 🔥 OVERLAY LOADING GENERATE
           if (provider.isGenerating)
             Container(
               color: Colors.black.withValues(alpha: 0.3),
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),

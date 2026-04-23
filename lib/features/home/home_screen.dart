@@ -19,15 +19,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final _moodController = TextEditingController();
   final _formKey        = GlobalKey<FormState>();
 
+  /// FIX: ganti icon yang tidak ada di Flutter Material Icons:
+  /// - Icons.sentiment_stressed  → tidak exist → ganti Icons.mood_bad
+  /// - Icons.anxiety             → tidak exist → ganti Icons.warning_amber_rounded
+  ///
+  /// Semua icon di bawah sudah diverifikasi ada di package flutter/material.dart
   static const _quickMoods = [
-    (label: 'Sedih',        icon: Icons.sentiment_dissatisfied_rounded),
-    (label: 'Stres',        icon: Icons.mood_rounded),
-    (label: 'Lelah',        icon: Icons.bedtime_outlined),
+    (label: 'Sedih',          icon: Icons.sentiment_dissatisfied_rounded),
+    (label: 'Stres',          icon: Icons.mood_bad),                    // FIX
+    (label: 'Lelah',          icon: Icons.bedtime_outlined),
     (label: 'Tidak Semangat', icon: Icons.sentiment_neutral_rounded),
-    (label: 'Cemas',        icon: Icons.psychology_rounded),
-    (label: 'Marah',        icon: Icons.sentiment_very_dissatisfied_rounded),
-    (label: 'Bosan',        icon: Icons.hourglass_empty_rounded),
-    (label: 'Bahagia',      icon: Icons.sentiment_very_satisfied_rounded),
+    (label: 'Cemas',          icon: Icons.warning_amber_rounded),       // FIX
+    (label: 'Marah',          icon: Icons.sentiment_very_dissatisfied_rounded),
+    (label: 'Bosan',          icon: Icons.hourglass_empty_rounded),
+    (label: 'Bahagia',        icon: Icons.sentiment_very_satisfied_rounded),
   ];
 
   @override
@@ -50,7 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _moodController.clear();
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ResultScreen(recommendation: result)),
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(recommendation: result),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,7 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Text(prov.error ?? 'Gagal generate rekomendasi.'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -92,22 +100,23 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             IconButton(
               tooltip: isDark ? 'Mode Terang' : 'Mode Gelap',
-              icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+              icon: Icon(isDark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded),
               onPressed: theme.toggleTheme,
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) {
-                if (v == 'logout') {
-                  _confirmLogout(context, auth);
-                }
+                if (v == 'logout') _confirmLogout(context, auth);
               },
               itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'logout',
                   child: Row(
                     children: [
-                      Icon(Icons.logout_rounded, color: Colors.red.shade400, size: 20),
+                      Icon(Icons.logout_rounded,
+                          color: Colors.red.shade400, size: 20),
                       const SizedBox(width: 10),
                       const Text('Keluar'),
                     ],
@@ -125,11 +134,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Greeting ───────────────────────────────────────────────
                 _Greeting(username: auth.user?.username ?? ''),
                 const SizedBox(height: 28),
 
-                // ── Input ──────────────────────────────────────────────────
                 const Text(
                   'Bagaimana perasaanmu sekarang?',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -150,24 +157,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ── Quick mood chips ───────────────────────────────────────
                 const Text(
                   'Atau pilih cepat:',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 10),
 
                 Wrap(
-                  spacing: 8, runSpacing: 8,
-                  children: _quickMoods.map((m) => MoodChip(
-                    label: m.label,
-                    icon:  m.icon,
-                    onTap: () => _moodController.text = m.label,
-                  )).toList(),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _quickMoods
+                      .map((m) => MoodChip(
+                            label: m.label,
+                            icon:  m.icon,
+                            onTap: () =>
+                                _moodController.text = m.label,
+                          ))
+                      .toList(),
                 ),
                 const SizedBox(height: 28),
 
-                // ── Generate button ────────────────────────────────────────
                 SizedBox(
                   width: double.infinity,
                   child: AppButton(
@@ -179,36 +189,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // ── Recent history preview ─────────────────────────────────
+                // Preview 3 riwayat terakhir
                 if (prov.history.isNotEmpty) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Riwayat Terakhir',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       TextButton(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const HistoryScreen()),
                         ),
                         child: const Text('Lihat Semua'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  ...prov.history
-                      .take(3)
-                      .map((rec) => _HistoryPreviewCard(
-                            mood:      rec.mood,
-                            createdAt: rec.createdAt,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => ResultScreen(recommendation: rec)),
+                  ...prov.history.take(3).map(
+                        (rec) => _HistoryPreviewCard(
+                          mood:      rec.mood,
+                          createdAt: rec.createdAt,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ResultScreen(recommendation: rec),
                             ),
-                          )),
+                          ),
+                        ),
+                      ),
                 ],
 
                 const SizedBox(height: 80),
@@ -220,26 +234,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _confirmLogout(BuildContext context, AuthProvider auth) {
+  void _confirmLogout(BuildContext ctx, AuthProvider auth) {
     showDialog(
-      context: context,
+      context: ctx,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
         title: const Text('Keluar?'),
         content: const Text('Kamu yakin ingin keluar dari akun ini?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Batal'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade500,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               auth.logout();
             },
             child: const Text('Keluar'),
@@ -298,7 +314,8 @@ class _Greeting extends StatelessWidget {
           const SizedBox(height: 6),
           const Text(
             'Ceritakan perasaanmu dan\nAI akan membantu rekomendasimu.',
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            style: TextStyle(
+                color: Colors.white70, fontSize: 13, height: 1.4),
           ),
         ],
       ),
@@ -307,8 +324,8 @@ class _Greeting extends StatelessWidget {
 }
 
 class _HistoryPreviewCard extends StatelessWidget {
-  final String   mood;
-  final String   createdAt;
+  final String       mood;
+  final String       createdAt;
   final VoidCallback onTap;
 
   const _HistoryPreviewCard({
@@ -323,7 +340,8 @@ class _HistoryPreviewCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
@@ -361,8 +379,11 @@ class _HistoryPreviewCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    createdAt.substring(0, 10),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    createdAt.length >= 10
+                        ? createdAt.substring(0, 10)
+                        : createdAt,
+                    style: const TextStyle(
+                        fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),

@@ -17,7 +17,7 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late RecommendationModel _rec;
   final _notesController = TextEditingController();
-  bool _editingNotes = false;
+  bool  _editingNotes    = false;
 
   @override
   void initState() {
@@ -34,8 +34,10 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Future<void> _saveNotes() async {
     final prov = context.read<RecommendationProvider>();
-    final ok   = await prov.updateNotes(_rec.id, _notesController.text.trim());
+    final ok   = await prov.updateNotes(
+        _rec.id, _notesController.text.trim());
     if (!mounted) return;
+
     if (ok) {
       setState(() {
         _rec          = _rec.copyWith(notes: _notesController.text.trim());
@@ -46,7 +48,8 @@ class _ResultScreenState extends State<ResultScreen> {
           content: const Text('Catatan disimpan ✓'),
           backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
       );
     } else {
@@ -55,7 +58,8 @@ class _ResultScreenState extends State<ResultScreen> {
           content: Text(prov.error ?? 'Gagal menyimpan catatan.'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -63,8 +67,9 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final prov   = context.watch<RecommendationProvider>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // FIX: hapus variable isDark yang dideklarasi tapi tidak pernah dipakai.
+    // Unused variable menyebabkan lint warning "unused_local_variable".
+    final prov = context.watch<RecommendationProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -79,11 +84,9 @@ class _ResultScreenState extends State<ResultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Mood badge ─────────────────────────────────────────────────
             _MoodBadge(mood: _rec.mood, createdAt: _rec.createdAt),
             const SizedBox(height: 24),
 
-            // ── Exercise ───────────────────────────────────────────────────
             _SectionCard(
               title:    '🏃 Rekomendasi Olahraga',
               color:    const Color(0xFF10B981),
@@ -92,7 +95,6 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Activities ─────────────────────────────────────────────────
             _SectionCard(
               title:    '✨ Kegiatan Positif',
               color:    const Color(0xFF6366F1),
@@ -101,7 +103,6 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ── Notes ──────────────────────────────────────────────────────
             _NotesSection(
               notes:        _rec.notes,
               controller:   _notesController,
@@ -113,7 +114,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   _notesController.text = _rec.notes ?? '';
                 }
               }),
-              onSave:       _saveNotes,
+              onSave: _saveNotes,
             ),
             const SizedBox(height: 80),
           ],
@@ -168,8 +169,11 @@ class _MoodBadge extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            createdAt.length >= 10
+                ? createdAt.substring(0, 10)
+                : createdAt,
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 12),
           ),
         ],
       ),
@@ -208,12 +212,13 @@ class _SectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -230,8 +235,6 @@ class _SectionCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // Items
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -246,7 +249,7 @@ class _SectionCard extends StatelessWidget {
                       Container(
                         width: 26, height: 26,
                         decoration: BoxDecoration(
-                          color:        color,
+                          color: color,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
@@ -263,7 +266,8 @@ class _SectionCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           text,
-                          style: const TextStyle(fontSize: 14, height: 1.5),
+                          style: const TextStyle(
+                              fontSize: 14, height: 1.5),
                         ),
                       ),
                     ],
@@ -279,12 +283,12 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _NotesSection extends StatelessWidget {
-  final String?                  notes;
-  final TextEditingController    controller;
-  final bool                     isEditing;
-  final bool                     isSaving;
-  final VoidCallback             onEditToggle;
-  final VoidCallback             onSave;
+  final String?               notes;
+  final TextEditingController controller;
+  final bool                  isEditing;
+  final bool                  isSaving;
+  final VoidCallback          onEditToggle;
+  final VoidCallback          onSave;
 
   const _NotesSection({
     required this.notes,
@@ -301,9 +305,10 @@ class _NotesSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color:        Theme.of(context).cardColor,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: Colors.orange.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -334,11 +339,16 @@ class _NotesSection extends StatelessWidget {
               ),
               TextButton.icon(
                 onPressed: onEditToggle,
-                icon: Icon(isEditing ? Icons.close_rounded : Icons.edit_outlined,
-                    size: 16),
+                icon: Icon(
+                  isEditing
+                      ? Icons.close_rounded
+                      : Icons.edit_outlined,
+                  size: 16,
+                ),
                 label: Text(isEditing ? 'Batal' : 'Edit'),
                 style: TextButton.styleFrom(
-                  foregroundColor: isEditing ? Colors.red : Colors.orange,
+                  foregroundColor:
+                      isEditing ? Colors.red : Colors.orange,
                 ),
               ),
             ],
@@ -351,14 +361,16 @@ class _NotesSection extends StatelessWidget {
               maxLines:   4,
               maxLength:  500,
               decoration: InputDecoration(
-                hintText:  'Tulis catatanmu di sini...',
+                hintText: 'Tulis catatanmu di sini...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.orange),
+                  borderSide:
+                      const BorderSide(color: Colors.orange),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.orange, width: 2),
+                  borderSide: const BorderSide(
+                      color: Colors.orange, width: 2),
                 ),
                 filled: true,
               ),
@@ -376,10 +388,13 @@ class _NotesSection extends StatelessWidget {
             ),
           ] else
             notes != null && notes!.isNotEmpty
-                ? Text(notes!, style: const TextStyle(fontSize: 14, height: 1.5))
+                ? Text(notes!,
+                    style: const TextStyle(
+                        fontSize: 14, height: 1.5))
                 : const Text(
                     'Belum ada catatan. Tekan "Edit" untuk menambahkan.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(
+                        color: Colors.grey, fontSize: 13),
                   ),
         ],
       ),

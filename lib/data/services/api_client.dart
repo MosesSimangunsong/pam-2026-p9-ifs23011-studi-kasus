@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+// FIX: hapus "import 'package:flutter/foundation.dart'" yang tidak dipakai.
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Centralised HTTP helper.
-/// - Attaches Bearer token automatically when available.
-/// - Throws [ApiException] on non-2xx responses.
+/// - Otomatis attach Bearer token jika tersedia.
+/// - Throw [ApiException] untuk response non-2xx.
 class ApiClient {
   static const Duration _timeout = Duration(seconds: 30);
 
@@ -58,11 +58,11 @@ class ApiClient {
           .timeout(_timeout);
       return _parse(res);
     } on SocketException {
-      throw ApiException('No internet connection.', 0);
+      throw ApiException('Tidak ada koneksi internet.', 0);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException('Request failed: $e', 0);
+      throw ApiException('Request gagal: $e', 0);
     }
   }
 
@@ -81,11 +81,11 @@ class ApiClient {
           .timeout(_timeout);
       return _parse(res);
     } on SocketException {
-      throw ApiException('No internet connection.', 0);
+      throw ApiException('Tidak ada koneksi internet.', 0);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException('Request failed: $e', 0);
+      throw ApiException('Request gagal: $e', 0);
     }
   }
 
@@ -103,11 +103,11 @@ class ApiClient {
           .timeout(_timeout);
       return _parse(res);
     } on SocketException {
-      throw ApiException('No internet connection.', 0);
+      throw ApiException('Tidak ada koneksi internet.', 0);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException('Request failed: $e', 0);
+      throw ApiException('Request gagal: $e', 0);
     }
   }
 
@@ -118,19 +118,19 @@ class ApiClient {
           .timeout(_timeout);
       return _parse(res);
     } on SocketException {
-      throw ApiException('No internet connection.', 0);
+      throw ApiException('Tidak ada koneksi internet.', 0);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException('Request failed: $e', 0);
+      throw ApiException('Request gagal: $e', 0);
     }
   }
 }
 
-/// Typed exception from API calls.
+/// Exception terstruktur dari API calls.
 class ApiException implements Exception {
   final String message;
-  final int statusCode;
+  final int    statusCode;
 
   const ApiException(this.message, this.statusCode);
 
