@@ -1,279 +1,344 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../data/models/recommendation_model.dart';
 import '../../providers/recommendation_provider.dart';
-import '../widgets/shared_widgets.dart';
 
 class ResultScreen extends StatefulWidget {
   final RecommendationModel recommendation;
-
   const ResultScreen({super.key, required this.recommendation});
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
 }
 
-class _ResultScreenState extends State<ResultScreen> {
+class _ResultScreenState extends State<ResultScreen>
+    with SingleTickerProviderStateMixin {
+
   late RecommendationModel _rec;
-  final _notesController = TextEditingController();
-  bool  _editingNotes    = false;
+  late AnimationController _animCtrl;
+  late Animation<double>    _fadeAnim;
+
+  final _notesCtrl    = TextEditingController();
+  bool  _editingNotes = false;
 
   @override
   void initState() {
     super.initState();
     _rec = widget.recommendation;
-    _notesController.text = _rec.notes ?? '';
+    _notesCtrl.text = _rec.notes ?? '';
+
+    // Fade-in the whole body
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _animCtrl.forward();
   }
 
   @override
   void dispose() {
-    _notesController.dispose();
+    _animCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _saveNotes() async {
     final prov = context.read<RecommendationProvider>();
-    final ok   = await prov.updateNotes(
-        _rec.id, _notesController.text.trim());
+    final ok   = await prov.updateNotes(_rec.id, _notesCtrl.text.trim());
     if (!mounted) return;
-
     if (ok) {
       setState(() {
-        _rec          = _rec.copyWith(notes: _notesController.text.trim());
+        _rec          = _rec.copyWith(notes: _notesCtrl.text.trim());
         _editingNotes = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Catatan disimpan ✓'),
-          backgroundColor: Colors.green.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showSnack('Catatan tersimpan ✓', isError: false);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(prov.error ?? 'Gagal menyimpan catatan.'),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showSnack(prov.error ?? 'Gagal menyimpan.', isError: true);
     }
+  }
+
+  void _showSnack(String msg, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: GoogleFonts.poppins()),
+      backgroundColor: isError
+          ? Theme.of(context).colorScheme.error
+          : const Color(0xFF3E9E78),
+      behavior:       SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    // FIX: hapus variable isDark yang dideklarasi tapi tidak pernah dipakai.
-    // Unused variable menyebabkan lint warning "unused_local_variable".
-    final prov = context.watch<RecommendationProvider>();
+    final prov   = context.watch<RecommendationProvider>();
+    final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Rekomendasi AI',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          'Rekomendasimu',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 17),
         ),
-        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _MoodBadge(mood: _rec.mood, createdAt: _rec.createdAt),
-            const SizedBox(height: 24),
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Mood Header ───────────────────────────────────────────────
+              _MoodHeader(rec: _rec),
+              const SizedBox(height: 28),
 
-            _SectionCard(
-              title:    '🏃 Rekomendasi Olahraga',
-              color:    const Color(0xFF10B981),
-              items:    _rec.exercise,
-              iconData: Icons.fitness_center_rounded,
-            ),
-            const SizedBox(height: 16),
+              // ── Exercise section ──────────────────────────────────────────
+              _SectionLabel(
+                icon:  Icons.directions_run_rounded,
+                label: 'Olahraga Ringan',
+                color: colors.brightness == Brightness.light
+                    ? AppColors.lGreen
+                    : AppColors.dGreen,
+              ),
+              const SizedBox(height: 12),
+              ..._rec.exercise.asMap().entries.map((e) => _RecommendationItem(
+                index:  e.key,
+                text:   e.value,
+                color:  colors.brightness == Brightness.light
+                    ? AppColors.lGreen
+                    : AppColors.dGreen,
+              )),
 
-            _SectionCard(
-              title:    '✨ Kegiatan Positif',
-              color:    const Color(0xFF6366F1),
-              items:    _rec.activities,
-              iconData: Icons.star_outline_rounded,
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            _NotesSection(
-              notes:        _rec.notes,
-              controller:   _notesController,
-              isEditing:    _editingNotes,
-              isSaving:     prov.isSavingNotes,
-              onEditToggle: () => setState(() {
-                _editingNotes = !_editingNotes;
-                if (!_editingNotes) {
-                  _notesController.text = _rec.notes ?? '';
-                }
-              }),
-              onSave: _saveNotes,
-            ),
-            const SizedBox(height: 80),
-          ],
+              // ── Activities section ────────────────────────────────────────
+              _SectionLabel(
+                icon:  Icons.star_outline_rounded,
+                label: 'Aktivitas Positif',
+                color: colors.primary,
+              ),
+              const SizedBox(height: 12),
+              ..._rec.activities.asMap().entries.map((e) => _RecommendationItem(
+                index: e.key,
+                text:  e.value,
+                color: colors.primary,
+              )),
+
+              const SizedBox(height: 28),
+
+              // ── Notes section ─────────────────────────────────────────────
+              _NotesSection(
+                notes:        _rec.notes,
+                controller:   _notesCtrl,
+                isEditing:    _editingNotes,
+                isSaving:     prov.isSavingNotes,
+                onEditToggle: () => setState(() {
+                  _editingNotes = !_editingNotes;
+                  if (!_editingNotes) _notesCtrl.text = _rec.notes ?? '';
+                }),
+                onSave: _saveNotes,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Sub-widgets ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Sub-widgets
+// ═══════════════════════════════════════════════════════════════════════════════
 
-class _MoodBadge extends StatelessWidget {
-  final String mood;
-  final String createdAt;
-  const _MoodBadge({required this.mood, required this.createdAt});
+/// Header besar menampilkan mood secara elegan — tanpa gradien kasar.
+class _MoodHeader extends StatelessWidget {
+  final RecommendationModel rec;
+  const _MoodHeader({required this.rec});
 
   @override
   Widget build(BuildContext context) {
+    final colors  = Theme.of(context).colorScheme;
+    final dateStr = rec.createdAt.length >= 10
+        ? rec.createdAt.substring(0, 10)
+        : rec.createdAt;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color:        colors.primaryContainer,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Mood kamu:',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
+          // Label
+          Row(children: [
+            Icon(Icons.self_improvement_rounded,
+                size: 16, color: colors.primary),
+            const SizedBox(width: 6),
+            Text(
+              'Mood kamu',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colors.primary,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+
+          // Mood text — large, bold, calm
           Text(
-            mood,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+            _capitalize(rec.mood),
+            style: GoogleFonts.poppins(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: colors.onSurface,
+              height: 1.25,
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            createdAt.length >= 10
-                ? createdAt.substring(0, 10)
-                : createdAt,
-            style: const TextStyle(
-                color: Colors.white54, fontSize: 12),
+
+          // Date chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              dateStr,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: colors.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
-class _SectionCard extends StatelessWidget {
-  final String       title;
-  final Color        color;
-  final List<String> items;
-  final IconData     iconData;
+/// Label section header
+class _SectionLabel extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final Color    color;
 
-  const _SectionCard({
-    required this.title,
+  const _SectionLabel({
+    required this.icon,
+    required this.label,
     required this.color,
-    required this.items,
-    required this.iconData,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color:        color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 18, color: color),
       ),
-      child: Column(
+      const SizedBox(width: 10),
+      Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    ]);
+  }
+}
+
+/// Item rekomendasi dengan numbered circle
+class _RecommendationItem extends StatelessWidget {
+  final int    index;
+  final String text;
+  final Color  color;
+
+  const _RecommendationItem({
+    required this.index,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    // Split nama & deskripsi jika ada " — "
+    final parts = text.split(' — ');
+    final name  = parts.isNotEmpty ? parts[0] : text;
+    final desc  = parts.length > 1 ? parts.sublist(1).join(' — ') : null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Numbered circle
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 18, vertical: 14),
+            width: 30, height: 30,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20)),
+              color:  color.withValues(alpha: 0.12),
+              shape:  BoxShape.circle,
             ),
-            child: Row(
-              children: [
-                Icon(iconData, color: color, size: 22),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
+            alignment: Alignment.center,
+            child: Text(
+              '${index + 1}',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
+          const SizedBox(width: 12),
+
+          // Content
+          Expanded(
             child: Column(
-              children: items.asMap().entries.map((e) {
-                final idx  = e.key + 1;
-                final text = e.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 26, height: 26,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$idx',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          text,
-                          style: const TextStyle(
-                              fontSize: 14, height: 1.5),
-                        ),
-                      ),
-                    ],
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colors.onSurface,
                   ),
-                );
-              }).toList(),
+                ),
+                if (desc != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    desc,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: colors.onSurface.withValues(alpha: 0.55),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -282,6 +347,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+/// Section catatan dengan edit toggle
 class _NotesSection extends StatelessWidget {
   final String?               notes;
   final TextEditingController controller;
@@ -301,101 +367,132 @@ class _NotesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color:        colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: Colors.orange.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        border:       Border.all(color: colors.outline, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.sticky_note_2_outlined,
-                      color: Colors.orange, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Catatan Saya',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
+              Icon(
+                Icons.edit_note_rounded,
+                size: 20,
+                color: colors.onSurface.withValues(alpha: 0.5),
               ),
-              TextButton.icon(
-                onPressed: onEditToggle,
-                icon: Icon(
-                  isEditing
-                      ? Icons.close_rounded
-                      : Icons.edit_outlined,
-                  size: 16,
+              const SizedBox(width: 8),
+              Text(
+                'Catatan Pribadi',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.onSurface,
                 ),
-                label: Text(isEditing ? 'Batal' : 'Edit'),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: onEditToggle,
                 style: TextButton.styleFrom(
-                  foregroundColor:
-                      isEditing ? Colors.red : Colors.orange,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  isEditing ? 'Batal' : 'Edit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isEditing
+                        ? colors.error
+                        : colors.primary,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
 
-          if (isEditing) ...[
-            TextFormField(
-              controller: controller,
-              maxLines:   4,
-              maxLength:  500,
-              decoration: InputDecoration(
-                hintText: 'Tulis catatanmu di sini...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: Colors.orange),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                      color: Colors.orange, width: 2),
-                ),
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: AppButton(
-                label:     'Simpan Catatan',
-                icon:      Icons.save_rounded,
-                isLoading: isSaving,
-                color:     Colors.orange,
-                onPressed: onSave,
-              ),
-            ),
-          ] else
-            notes != null && notes!.isNotEmpty
-                ? Text(notes!,
-                    style: const TextStyle(
-                        fontSize: 14, height: 1.5))
-                : const Text(
-                    'Belum ada catatan. Tekan "Edit" untuk menambahkan.',
-                    style: TextStyle(
-                        color: Colors.grey, fontSize: 13),
+          const SizedBox(height: 12),
+
+          // Content
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: isEditing
+                ? Column(
+              key: const ValueKey('editing'),
+              children: [
+                TextField(
+                  controller: controller,
+                  maxLines:   4,
+                  maxLength:  500,
+                  style: GoogleFonts.poppins(
+                      fontSize: 14, color: colors.onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Tulis refleksimu di sini...',
+                    counterStyle: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: colors.onSurface.withValues(alpha: 0.35),
+                    ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: isSaving ? null : onSave,
+                    icon: isSaving
+                        ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Icon(Icons.check_rounded, size: 18),
+                    label: Text(
+                      isSaving ? 'Menyimpan...' : 'Simpan Catatan',
+                      style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            )
+                : SizedBox(
+              key: const ValueKey('viewing'),
+              width: double.infinity,
+              child: notes != null && notes!.isNotEmpty
+                  ? Text(
+                notes!,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: colors.onSurface,
+                  height: 1.6,
+                ),
+              )
+                  : Text(
+                'Belum ada catatan.\nTekan "Edit" untuk menambahkan refleksimu.',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: colors.onSurface.withValues(alpha: 0.4),
+                  height: 1.6,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -1,345 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../data/models/recommendation_model.dart';
 import '../../providers/recommendation_provider.dart';
 import '../result/result_screen.dart';
-import '../widgets/shared_widgets.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
-
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  final _scrollController = ScrollController();
+  final _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-
-    final prov = context.read<RecommendationProvider>();
-
-    // Fetch fresh history when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      prov.fetchHistory(reset: true);
+      context.read<RecommendationProvider>().fetchHistory(reset: true);
     });
-
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
-        prov.fetchHistory();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >=
+          _scroll.position.maxScrollExtent - 200) {
+        context.read<RecommendationProvider>().fetchHistory();
       }
     });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, RecommendationProvider prov, int id) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hapus Riwayat?'),
-        content: const Text(
-            'Data rekomendasi ini akan dihapus secara permanen. Yakin?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade500,
-              foregroundColor: Colors.white,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      final ok = await prov.delete(id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'Riwayat dihapus.' : (prov.error ?? 'Gagal menghapus.')),
-          backgroundColor: ok ? Colors.green.shade600 : Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final prov = context.watch<RecommendationProvider>();
+    final prov   = context.watch<RecommendationProvider>();
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text('Riwayat', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: false,
+        title: Text('Riwayat',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => prov.fetchHistory(reset: true),
+            icon: const Icon(Icons.refresh_rounded, size: 22),
+            onPressed: () =>
+                context.read<RecommendationProvider>().fetchHistory(reset: true),
           ),
         ],
       ),
-      body: prov.history.isEmpty && prov.isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: prov.isLoading && prov.history.isEmpty
+          ? _buildShimmer(isDark)
           : prov.history.isEmpty
-              ? _EmptyState(onGenerate: () => Navigator.pop(context))
-              : RefreshIndicator(
-                  onRefresh: () => prov.fetchHistory(reset: true),
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                    itemCount: prov.history.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == prov.history.length) {
-                        return prov.isLoading
-                            ? const Padding(
-                                padding: EdgeInsets.all(20),
-                                child: Center(
-                                    child: CircularProgressIndicator()),
-                              )
-                            : const SizedBox.shrink();
-                      }
-
-                      final rec = prov.history[index];
-                      return _HistoryCard(
-                        rec:      rec,
-                        number:   index + 1,
-                        onTap:    () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  ResultScreen(recommendation: rec)),
-                        ),
-                        onDelete: () => _confirmDelete(context, prov, rec.id),
-                      );
-                    },
-                  ),
+          ? _buildEmpty(context, colors)
+          : RefreshIndicator(
+        onRefresh: () =>
+            context.read<RecommendationProvider>().fetchHistory(reset: true),
+        child: ListView.separated(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          itemCount: prov.history.length + (prov.hasMore ? 1 : 0),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (ctx, i) {
+            if (i == prov.history.length) {
+              return const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final rec = prov.history[i];
+            return _HistoryCard(
+              rec: rec,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ResultScreen(recommendation: rec),
                 ),
+              ),
+              onDelete: () => _confirmDelete(ctx, prov, rec.id),
+            );
+          },
+        ),
+      ),
     );
   }
-}
 
-// ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _HistoryCard extends StatelessWidget {
-  final RecommendationModel rec;
-  final int                 number;
-  final VoidCallback        onTap;
-  final VoidCallback        onDelete;
-
-  const _HistoryCard({
-    required this.rec,
-    required this.number,
-    required this.onTap,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '#$number',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    rec.createdAt.length >= 10
-                        ? rec.createdAt.substring(0, 10)
-                        : rec.createdAt,
-                    style: const TextStyle(
-                        color: Colors.white60, fontSize: 11),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Delete button
-                  GestureDetector(
-                    onTap: onDelete,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.delete_outline_rounded,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              // Mood
-              Row(
-                children: [
-                  const Icon(Icons.mood_rounded,
-                      color: Colors.white70, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      rec.mood,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Exercise preview
-              _PreviewRow(
-                icon:  Icons.fitness_center_rounded,
-                label: rec.exercise.isNotEmpty ? rec.exercise.first : '—',
-              ),
-              const SizedBox(height: 6),
-
-              // Activity preview
-              _PreviewRow(
-                icon:  Icons.star_outline_rounded,
-                label: rec.activities.isNotEmpty ? rec.activities.first : '—',
-              ),
-
-              if (rec.notes != null && rec.notes!.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.sticky_note_2_outlined,
-                          color: Colors.white70, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          rec.notes!,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 10),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text('Lihat detail',
-                      style:
-                          TextStyle(color: Colors.white70, fontSize: 12)),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios_rounded,
-                      color: Colors.white70, size: 12),
-                ],
-              ),
-            ],
+  Widget _buildShimmer(bool isDark) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+      itemCount: 8,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, __) => Shimmer.fromColors(
+        baseColor:      isDark ? const Color(0xFF1E1D2E) : const Color(0xFFF0EFF8),
+        highlightColor: isDark ? const Color(0xFF2A2838) : const Color(0xFFFFFFFF),
+        child: Container(
+          height: 74,
+          decoration: BoxDecoration(
+            color:        Colors.white,
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
     );
   }
-}
 
-class _PreviewRow extends StatelessWidget {
-  final IconData icon;
-  final String   label;
-  const _PreviewRow({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.white54, size: 14),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onGenerate;
-  const _EmptyState({required this.onGenerate});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildEmpty(BuildContext ctx, ColorScheme colors) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -347,38 +118,139 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
+              width: 80, height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(
-                Icons.history_rounded,
-                size: 60,
-                color: Color(0xFF6366F1),
-              ),
+              child: Icon(Icons.history_rounded,
+                  size: 36, color: colors.primary),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Belum Ada Riwayat',
-              style:
-                  TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Mulai ceritakan suasana hatimu\ndan dapatkan rekomendasi AI pertamamu!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, height: 1.5),
-            ),
-            const SizedBox(height: 28),
-            AppButton(
-              label:     'Generate Sekarang',
-              icon:      Icons.auto_awesome_rounded,
-              onPressed: onGenerate,
-            ),
+            const SizedBox(height: 20),
+            Text('Belum ada riwayat',
+                style: GoogleFonts.poppins(
+                    fontSize: 17, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text('Riwayat rekomendasimu akan muncul di sini.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: colors.onSurface.withValues(alpha: 0.5))),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _confirmDelete(
+      BuildContext ctx, RecommendationProvider prov, int id) async {
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Hapus riwayat?'),
+        content: const Text('Data ini akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await prov.delete(id);
+  }
+}
+
+class _HistoryCard extends StatelessWidget {
+  final RecommendationModel rec;
+  final VoidCallback         onTap;
+  final VoidCallback         onDelete;
+
+  const _HistoryCard({
+    required this.rec,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors  = Theme.of(context).colorScheme;
+    final dateStr = rec.createdAt.length >= 10
+        ? rec.createdAt.substring(0, 10)
+        : rec.createdAt;
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(children: [
+            Container(
+              width: 46, height: 46,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.self_improvement_rounded,
+                  color: colors.primary, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _cap(rec.mood),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    dateStr,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: colors.onSurface.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onDelete,
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: colors.onSurface.withValues(alpha: 0.3),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: colors.onSurface.withValues(alpha: 0.3),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }

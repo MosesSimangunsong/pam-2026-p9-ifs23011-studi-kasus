@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+// 1. TAMBAHKAN IMPORT INI
+import 'package:intl/date_symbol_data_local.dart';
+
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
 import 'providers/auth_provider.dart';
@@ -9,16 +12,17 @@ import 'providers/recommendation_provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_screen.dart';
 
-// FIX 1: tambah WidgetsFlutterBinding.ensureInitialized() karena main() async.
-// Tanpa ini, SharedPreferences (dan plugin lain) bisa crash di beberapa device.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  // 2. TAMBAHKAN BARIS INI UNTUK MENCEGAH ERROR LOCALE DATE
+  await initializeDateFormatting('id_ID', null);
+
+  runApp(const MoodApp());
 }
 
-// FIX 2: tambah {super.key} agar tidak ada lint warning "prefer_const_constructors"
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MoodApp extends StatelessWidget {
+  const MoodApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,25 +34,21 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MotivationProvider()),
       ],
       child: Consumer<ThemeNotifier>(
-        builder: (context, theme, _) {
-          return MaterialApp(
-            title: 'Mood AI',
-            debugShowCheckedModeBanner: false,
-            theme:     AppTheme.light,
-            darkTheme: AppTheme.dark,
-            themeMode: theme.themeMode,
-            home: const _AppRouter(),
-          );
-        },
+        builder: (_, theme, __) => MaterialApp(
+          title:                      'Mood & Wellness AI',
+          debugShowCheckedModeBanner: false,
+          theme:     AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: theme.themeMode,
+          home:      const _AppRouter(),
+        ),
       ),
     );
   }
 }
 
-/// Auth guard: cek token saat app start, arahkan ke Login atau Home.
 class _AppRouter extends StatefulWidget {
   const _AppRouter();
-
   @override
   State<_AppRouter> createState() => _AppRouterState();
 }
@@ -57,8 +57,6 @@ class _AppRouterState extends State<_AppRouter> {
   @override
   void initState() {
     super.initState();
-    // Jalankan setelah frame pertama selesai render.
-    // Ini penting agar context.read tersedia.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().checkAuth();
     });
@@ -67,17 +65,11 @@ class _AppRouterState extends State<_AppRouter> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-
     return switch (auth.status) {
-      // Splash / loading saat cek token
       AuthStatus.unknown => const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-          ),
-        ),
-      // Token valid → langsung ke HomeScreen
-      AuthStatus.authenticated => const HomeScreen(),
-      // Belum login atau token expired → LoginScreen
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      AuthStatus.authenticated   => const HomeScreen(),
       AuthStatus.unauthenticated => const LoginScreen(),
     };
   }
