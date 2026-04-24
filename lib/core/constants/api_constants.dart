@@ -1,7 +1,7 @@
 class ApiConstants {
   // ── Base URL ──────────────────────────────────────────────────────────────
   // Change this to your backend's address (local dev or deployed).
-  static const String baseUrl = "http://172.16.96.225:5000/"; // Android emulator
+  static const String baseUrl = "https://pam-2026-p9-ifs23011-be.mosessimangunsong.fun:8080/"; // Android emulator
   // static const String baseUrl = "http://localhost:5000"; // iOS simulator
   // static const String baseUrl = "https://your-deployed-backend.com"; // Production
 
